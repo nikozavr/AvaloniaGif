@@ -15,55 +15,48 @@ namespace AvaloniaGif
 {
     public class GifInstance : IDisposable
     {
-        public Image TargetControl { get; set; }
-        public Stream Stream { get; private set; }
-        public IterationCount IterationCount { get; private set; }
-        public bool AutoStart { get; private set; } = true;
-        public Progress<int> Progress { get; private set; }
-        bool _streamCanDispose;
+        private readonly Image _targerImage;
+        private readonly Stream _stream;
+        private readonly IterationCount _iterationCount;
+        private readonly bool _autoStart;
+
         private GifDecoder _gifDecoder;
         private GifBackgroundWorker _bgWorker;
         private WriteableBitmap _targetBitmap;
         private bool _hasNewFrame;
         private bool _isDisposed;
+
         private readonly object _bitmapSync = new object();
         private static readonly object _globalUIThreadUpdateLock = new object();
 
-        public void SetSource(object newValue)
+        public GifInstance(Image target, Stream stream, IterationCount iterationCount, bool autoStart = true)
         {
-            var sourceUri = newValue as Uri;
-            var sourceStr = newValue as Stream;
+            _targerImage = target;
+            _stream = stream;
+            _iterationCount = iterationCount;
+            _autoStart = autoStart;
+        }
 
-            Stream stream = null;
-
-            if (sourceUri != null)
+        public void Process()
+        {
+            GifRepeatBehavior gifRepeatBehavior = new GifRepeatBehavior();
+            if (_iterationCount.IsInfinite)
             {
-                _streamCanDispose = true;
-                this.Progress = new Progress<int>();
-
-                if (sourceUri.OriginalString.Trim().StartsWith("resm"))
-                {
-                    var assetLocator = AvaloniaLocator.Current.GetService<IAssetLoader>();
-                    stream = assetLocator.Open(sourceUri);
-                }
-
-            }
-            else if (sourceStr != null)
-            {
-                stream = sourceStr;
+                gifRepeatBehavior.LoopForever = true;
             }
             else
             {
-                throw new InvalidDataException("Missing valid URI or Stream.");
+                gifRepeatBehavior.LoopForever = false;
+                gifRepeatBehavior.Count = (int)_iterationCount.Value;
             }
 
-            Stream = stream;
-            this._gifDecoder = new GifDecoder(Stream);
-            this._bgWorker = new GifBackgroundWorker(_gifDecoder);
+            _gifDecoder = new GifDecoder(_stream);
             var pixSize = new PixelSize(_gifDecoder.Header.Dimensions.Width, _gifDecoder.Header.Dimensions.Height);
-            this._targetBitmap = new WriteableBitmap(pixSize, new Vector(96, 96), PixelFormat.Bgra8888);
-
-            TargetControl.Source = _targetBitmap;
+            _targetBitmap = new WriteableBitmap(pixSize, new Vector(96, 96), PixelFormat.Bgra8888);
+           // _bgWorker.
+            //FrameChanged();
+            _targerImage.Source = _targetBitmap;
+            _bgWorker = new GifBackgroundWorker(_gifDecoder, gifRepeatBehavior);
             //TargetControl.DetachedFromVisualTree += delegate { this.Dispose(); };
             _bgWorker.CurrentFrameChanged += FrameChanged;
 
@@ -74,11 +67,11 @@ namespace AvaloniaGif
         {
             if (_isDisposed | !_hasNewFrame) return;
             lock (_globalUIThreadUpdateLock)
-                lock (_bitmapSync)
-                {
-                    TargetControl?.InvalidateVisual();
-                    _hasNewFrame = false;
-                }
+            lock (_bitmapSync)
+            {
+                _targerImage?.InvalidateVisual();
+                _hasNewFrame = false;
+            }
         }
 
         private void FrameChanged()
@@ -94,30 +87,17 @@ namespace AvaloniaGif
 
         private void Run()
         {
-            if (!Stream.CanSeek)
+            if (!_stream.CanSeek)
                 throw new ArgumentException("The stream is not seekable");
 
             AvaloniaLocator.Current.GetService<IRenderTimer>().Tick += RenderTick;
-            this._bgWorker?.SendCommand(BgWorkerCommand.Play);
-        }
-
-        public void IterationCountChanged(AvaloniaPropertyChangedEventArgs e)
-        {
-            var newVal = (IterationCount)e.NewValue;
-            this.IterationCount = newVal;
-        }
-
-        public void AutoStartChanged(AvaloniaPropertyChangedEventArgs e)
-        {
-            var newVal = (bool)e.NewValue;
-            this.AutoStart = newVal;
+            _bgWorker?.SendCommand(BgWorkerCommand.Play);
         }
 
         public void Dispose()
         {
-            _isDisposed = true;
-            AvaloniaLocator.Current.GetService<IRenderTimer>().Tick -= RenderTick;
-            this._bgWorker?.SendCommand(BgWorkerCommand.Dispose);
+            _stream?.Dispose();
+            _gifDecoder?.Dispose();
             _targetBitmap?.Dispose();
         }
     }
