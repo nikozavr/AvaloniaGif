@@ -1,15 +1,12 @@
 using AvaloniaGif.Decoding;
 using System;
 using System.IO;
-using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Animation;
-using System.Threading;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Rendering;
-using Avalonia.Logging;
 
 namespace AvaloniaGif
 {
@@ -53,11 +50,8 @@ namespace AvaloniaGif
             _gifDecoder = new GifDecoder(_stream);
             var pixSize = new PixelSize(_gifDecoder.Header.Dimensions.Width, _gifDecoder.Header.Dimensions.Height);
             _targetBitmap = new WriteableBitmap(pixSize, new Vector(96, 96), PixelFormat.Bgra8888);
-           // _bgWorker.
-            //FrameChanged();
             _targerImage.Source = _targetBitmap;
             _bgWorker = new GifBackgroundWorker(_gifDecoder, gifRepeatBehavior);
-            //TargetControl.DetachedFromVisualTree += delegate { this.Dispose(); };
             _bgWorker.CurrentFrameChanged += FrameChanged;
 
             Run();
