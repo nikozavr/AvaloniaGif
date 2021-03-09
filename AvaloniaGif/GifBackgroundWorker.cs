@@ -11,7 +11,6 @@ namespace AvaloniaGif
 {
     internal sealed class GifBackgroundWorker
     {
-        private  Stopwatch _t;
         private static readonly Stopwatch _timer = Stopwatch.StartNew();
         private GifDecoder _gifDecoder;
 
@@ -115,8 +114,6 @@ namespace AvaloniaGif
 
         public GifBackgroundWorker(GifDecoder gifDecode, GifRepeatBehavior gifRepeatBehavior)
         {
-            _t = new Stopwatch();
-            _t.Start();
             _gifDecoder = gifDecode;
             _lockObj = new object();
             _repeatBehavior = gifRepeatBehavior;
@@ -173,7 +170,6 @@ namespace AvaloniaGif
             switch (_state)
             {
                 case BgWorkerState.Null:
-                    //Console.WriteLine("this is null");
                     //Thread.Sleep(40);
                     break;
                 case BgWorkerState.Paused:
@@ -181,17 +177,12 @@ namespace AvaloniaGif
                     Thread.Sleep(60);
                     break;
                 case BgWorkerState.Start:
-                    //Console.WriteLine("this is start");
+                    Console.WriteLine("this is start");
                     _state = BgWorkerState.Running;
                     ShowFirstFrame();
                     break;
                 case BgWorkerState.Running:
-                    if (_t != null)
-                    {
-                        Console.WriteLine($"Elapsed {_t.ElapsedMilliseconds}");
-                        _t = null;
-                    }
-                    //Console.WriteLine("this is running");
+                    Console.WriteLine("this is running");
                     WaitAndRenderNext();
                     break;
                 case BgWorkerState.Complete:
@@ -245,7 +236,6 @@ namespace AvaloniaGif
 
         private void DoDispose()
         {
-            Console.WriteLine("This is dispose");
             _state = BgWorkerState.Dispose;
             _shouldStop = true;
             _gifDecoder.Dispose();
